@@ -23,7 +23,7 @@ app.on("ready", function () {
     icon: "img/icon-128.icns",
     width: 124,
     height: 93,
-    resizable: true,
+    resizable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false,
