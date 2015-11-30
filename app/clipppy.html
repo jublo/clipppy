@@ -1,0 +1,124 @@
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="clipppy.css" />
+  <link rel="stylesheet" type="text/css" href="clippy-js/clippy.css" media="all">
+</head>
+
+<body>
+  <script src="clippy-js/clippy.min.js"></script>
+  <script src="jquery-2.1.4.min.js" onload="window.$ = window.jQuery = module.exports;"></script>
+  <script>
+
+    var agents = ["Clippy", "F1", "Genius", "Links", "Rocky"],
+      agent,
+      agent_name = localStorage.agent ? localStorage.agent : "Clippy",
+      remote = require('electron').remote,
+      mainWindow = remote.BrowserWindow,
+      Menu = remote.require('menu'),
+      MenuItem = remote.require('menu-item'),
+      Tray = remote.require('tray'),
+      NativeImage = remote.require('native-image');
+
+    function loadAgent(agent) {
+      // hide existing agent, if any
+      if (window.agent) {
+        window.agent.hide(0);
+      }
+      // check that it's valid
+      if (agents.indexOf(agent) === -1) {
+        agent = "Clippy";
+      }
+      // remember
+      localStorage.agent = agent_name = agent;
+      // load agent
+      clippy.load(agent, function (obj) {
+        // store reference
+        window.agent = obj;
+        // play intro
+        obj.play("Greeting");
+      });
+    }
+    function saveWindowPosition(x, y) {
+      localStorage.pos_x = x;
+      localStorage.pos_y = y;
+    };
+    function restoreWindowPosition() {
+      // restore window position
+      var pos_x = typeof localStorage.pos_x !== "undefined" ? parseInt(localStorage.pos_x) : -1,
+        pos_y = typeof localStorage.pos_y !== "undefined" ? parseInt(localStorage.pos_y) : -1;
+
+      if (pos_x < 0 || pos_x + (0.5 * window.innerWidth) > screen.width
+      || pos_y < 0 || pos_y + (0.5 * window.innerHeight) > screen.height
+        ) {
+        pos_x = screen.width - window.innerWidth - 50;
+        pos_y = screen.height - window.innerHeight - 50;
+      }
+      moveTo(pos_x, pos_y);
+    }
+    restoreWindowPosition();
+
+    (function tray_and_contextmenu() {
+      // Create a tray icon
+      var item_quit = new MenuItem({
+        label: "Quit Clipppy",
+        click: function () {
+          window.close();
+        }
+      });
+
+      var menu_agents = new Menu(),
+        items_agents = [],
+        item_agent;
+      for (var i in agents) {
+        item_agent = new MenuItem({
+          type: "checkbox",
+          checked: agents[i] === agent_name,
+          label: agents[i],
+          click: function (menuItem) {
+            for (var j in items_agents) {
+              items_agents[j].checked = false;
+            }
+            menuItem.checked = true;
+            loadAgent(menuItem.label);
+          }
+        });
+        items_agents.push(item_agent);
+        menu_agents.append(item_agent);
+      }
+
+      var item_agents = new MenuItem({
+        label: "Agent",
+        submenu: menu_agents
+      });
+
+      var tray = new Tray(NativeImage.createFromDataURL("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAASCAYAAABb0P4QAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3wseFCEBCB07PgAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAD3ElEQVQ4y5VUW0xbdRz+/uec9vS0nJZeaKFrgQJFLspCiAyGgjB1i06XmRkXNUbj7cUlPjizqXtYMEoEshlN1O1B5swCGq+DoHtZvDCjzhrmzLjUdJSWddD7aXs4PfQcHxQjAVz8Hn+/fF++L78LwX/gm+8uv/z75bmDfn9IvK3Ne/iBB3uGcANQmzUmf71QlxLw3FzLadfgQKLuhx+nXx0cHLTh/8Lr/Yuzc9fuscbG1vHVus8XOnvs2Id7bsQnGxWPHn3z7n37HvtgdLS3XRBK5np7DykvHTqifjJ6zv3t+ElyxT+/WxQSDcsQimhahSzTYKFCBqMy/xaKx2OYmZmxl5dXft3V1YET7w1f6u5p4tvbvTu8TdvVHcLM/PcTFyCs5KFSFCiKgCIUqEIeGRBwGnJgQ4cnT5xJ/nRxwtR9x165ob7GG40Hrr7xej/27n8KtbVJqDIHlVmGVNBAWs5DIwEZrYq72hr5dUM5+MJxPP3Mw8VCwak8eWDIHgx8OTk7HYTTWQG6kIfNtQVOjwXu0jq4HBaUOV3QGfWosBl9Jda2zDrB/oHnIWZFrsxoKrzV1/FpdY3b1NNVBntdDXbdVwY5R0OnNYDoc+BZLYx6GeVuF0rttuFN1yYjJWneyGnOT2S7G26pAsPzcHIlOH1mFnazERqWQhFDoLcWw2Exg9evoKqy1XdFLYDZSNBmXhRTCXEBFOcEOJiMBDIj4apfQjQaQfB6GgZWA1mZh7vCBYfNACh6Xz1NNl1st9XFOqXUNUi5NIqNgJgzg7eZkUkn0dlcg61NbqDAIhtPQa+1+AlNEusiq6oKAFgSwiMLgTk0NuuwsBSGIkXAahnI6SSIjkJOpRAJx6HkMyi26sGx9NurGmsiE0IwGxg+DCnXWuqk8Mij9TjeH0JZpQseRxjBPzKIRvLIxtJYDGVRZDIgJURBYefImltedZYUvnqC57jXwv4s7r/3ZvxyUY8j/R5s71hASgyDtxDwnBbhRRECESAIKXBgxwghkTUOp3xDW/2hj94Nzlxv02iz0Llt0KyoOPfOFNy2PPxTCXjcViylq5CSAjByy7ippgLllVawjpK+NSlD82dfUbRyl7SYvVNhKWQzeehYBYxWwdjn1xATPWhu0SGTMYLXTUOvyYEiLDx1DpTaq8d5w7Z71ghe+nkETbc+BADIpT92ZHNcZ0qJVbOS4fa0IranYlnzUiwHu4MDvaIFSxMwJg72Ivw28OL+lr5TCZkQy+bfJhr4AjbPnr+nfp6ZDjL6eGSymzYUbTPq0AlJ06rVyO9X1z7+rDr/GXKWVhgMW/7h/wkdrn7il+BqKgAAAABJRU5ErkJggg=="));
+      tray.setToolTip("Clipppy");
+
+      var menu_tray = new Menu();
+      menu_tray.append(item_agents);
+      menu_tray.append(item_quit);
+      tray.setContextMenu(menu_tray);
+
+      $(document.body).on("contextmenu", function (ev) {
+        ev.preventDefault();
+        menu_tray.popup(ev.x, ev.y);
+        return false;
+      });
+    })();
+
+    $(document).ready(function () {
+      loadAgent(agent_name);
+    });
+
+    $(window).on("beforeunload", function (e) {
+      e.preventDefault();
+      var close_anim = agent.animations().indexOf("GoodBye") > -1 ? "GoodBye" : "Goodbye";
+      agent.play(close_anim, undefined, function () {
+        $(window).off("beforeunload");
+        window.close();
+      });
+      return false;
+    });
+  </script>
+</body>
+</html>
